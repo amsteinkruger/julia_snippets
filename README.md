@@ -270,5 +270,168 @@ end
 
 
 ```julia
-# Something.
+# Three ways to declare functions
+
+function sayhi(name)
+    println("Hi $name, it's great to see you!")
+end
+
+function f(x)
+    x^2
+end
+
+sayhi("C-3PO")
+f(42)
+
+sayhi2(name) = println("Hi $name, it's great to see you!")
+f2(x) = x^2
+sayhi2("R2D2")
+f2(42)
+
+sayhi3 = name -> println("Hi $name, it's great to see you!")
+f3 = x -> x^2
+sayhi3("Chewbacca")
+f3(42)
+
+# Duck-Typing
+
+sayhi(55595472)
+
+A = rand(3, 3)
+A
+
+f(A)
+f("hi")
+v = rand(3)
+# This won't work.
+# f(v) 
+
+# (Non-)Mutating Functions
+
+# Note !.
+
+v = [3, 5, 2]
+
+sort(v)
+v
+
+sort!(v)
+v
+
+# Higher-Order Functions
+
+map(f, [1, 2, 3])
+
+x -> x^3
+map(x -> x^3, [1, 2, 3])
+
+broadcast(f, [1, 2, 3])
+f.([1, 2, 3])
+
+A = [i + 3*j for j in 0:2, i in 1:3]
+f(A)
+B = f.(A)
+A .+ 2 .* f.(A) ./ A
+
+# instead of 
+
+broadcast(x -> x + 2 * f(x) / x, A)
+
+# Exercises
+
+# (1)
+
+add_one(input) = input + 1
+add_one(3)
+
+@assert add_one(1) == 2
+@assert add_one(11) == 12
+
+# (2)
+
+A = [i + 3*j for j in 0:2, i in 1:3]
+A
+
+A1 = add_one.(A)
+A1
+
+@assert A1 == [2 3 4; 5 6 7; 8 9 10]
+
+# (3)
+
+A2 = add_one.(A1)
+
+@assert A2 == [3 4 5; 6 7 8; 9 10 11]
+```
+
+## Packages
+
+
+```julia
+using Pkg
+Pkg.add("Example")
+using Example
+
+hello("it's me. I was wondering if after all these years you'd like to meet.")
+
+Pkg.add("Colors")
+using Colors
+palette = distinguishable_colors(100)
+rand(palette, 3, 3)
+
+# Exercises
+
+# (1)
+
+using Pkg
+Pkg.add("Primes")
+using Primes
+
+@assert @isdefined Primes
+
+# (2)
+
+primes_list = primes(0, 100)
+
+@assert primes_list == primes(100)
+```
+
+## Plots
+
+
+```julia
+using Pkg
+Pkg.add("Plots")
+using Plots
+
+globaltemperatures = [14.4, 14.5, 14.8, 15.2, 15.5, 15.8]
+numpirates = [45000, 20000, 15000, 5000, 400, 17];
+gr()
+
+plot(numpirates, globaltemperatures, label="line")  
+scatter!(numpirates, globaltemperatures, label="points")
+xlabel!("Number of Pirates [Approximate]")
+ylabel!("Global Temperature (C)")
+title!("Influence of pirate population on global warming")
+
+xflip!()
+
+Pkg.add("UnicodePlots")
+unicodeplots()
+
+plot(numpirates, globaltemperatures, label="line")  
+scatter!(numpirates, globaltemperatures, label="points") 
+xlabel!("Number of Pirates [Approximate]")
+ylabel!("Global Temperature (C)")
+title!("Influence of pirate population on global warming")
+
+# Exercises
+
+# (1)
+# (2)
+p1 = plot(x, x)
+p2 = plot(x, x.^2)
+p3 = plot(x, x.^3)
+p4 = plot(x, x.^4)
+plot(p1, p2, p3, p4, layout = (2, 2), legend = false)
 ```
