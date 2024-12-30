@@ -435,3 +435,366 @@ p3 = plot(x, x.^3)
 p4 = plot(x, x.^4)
 plot(p1, p2, p3, p4, layout = (2, 2), legend = false)
 ```
+
+## Multiple Dispatch
+
+
+```julia
+f(x) = x.^2
+f(10)
+f([1, 2, 3])
+
+# Specifying Methods
+
+foo(x::String, y::String) = println("My inputs x and y are both strings!")
+foo("hello", "hi!")
+# foo(3, 4)
+foo(x::Int, y::Int) = println("My inputs x and y are both integers!")
+foo(3, 4)
+foo("hello", "hi!")
+methods(foo)
+methods(+)
+@which foo(3, 4)
+@which 3.0 + 3.0
+foo(x::Number, y::Number) = println("My inputs x and y are both numbers!")
+foo(3.0, 4.0)
+foo(x, y) = println("I accept inputs of any type!")
+v = rand(3)
+foo(v, v)
+
+# Exercises
+
+# (1)
+
+# (2)
+
+foo(true)
+
+@assert foo(true) == "foo with one boolean!"
+
+
+
+```
+
+## Speed
+
+
+```julia
+a = rand(10^7)
+sum(a)
+@time sum(a)
+
+using Pkg
+Pkg.add("BenchmarkTools")
+using BenchmarkTools  
+
+# Note subsequent material on benchmarking with C., etc.
+```
+
+## Linear Algebra
+
+
+```julia
+# Note full material defines each operation to avoid ambiguous interpretation. Worth reading. 
+
+A = rand(1:4,3,3)
+
+x = fill(1.0, (3,))
+
+b = A*x
+
+A'
+
+transpose(A)
+
+A'A
+
+A\b
+
+Atall = rand(3, 2)
+
+Atall\b
+
+v = rand(3)
+rankdef = hcat(v, v)
+rankdef\b
+
+bshort = rand(2)
+Ashort = rand(2, 3)
+
+Ashort\bshort
+
+# Exercises
+
+# (1)
+
+using LinearAlgebra
+
+v = [1,2,3]
+
+v_dot = v' * v
+
+@assert v_dot == 14
+
+# (2)
+
+v_outer = v * v'
+
+@assert v_outer == [1 2 3
+                    2 4 6
+                    3 6 9]
+
+# (3)
+
+v_cross = cross(v, v)
+
+@assert v_cross == [0, 0, 0]
+
+```
+
+## Factorizations
+
+
+```julia
+# LU
+
+using LinearAlgebra
+A = rand(3, 3)
+x = fill(1, (3,))
+b = A * x
+
+Alu = lu(A)
+typeof(Alu)
+Alu.P
+Alu.L
+Alu.U
+
+A\b
+Alu\b
+
+det(A) ≈ det(Alu)
+
+# QR
+
+Aqr = qr(A)
+Aqr.Q
+Aqr.R
+
+# Eigendecompositions
+
+Asym = A + A'
+AsymEig = eigen(Asym)
+AsymEig.values
+AsymEig.vectors
+inv(AsymEig)*Asym
+
+# Special Matrix Structures
+
+n = 1000
+A = randn(n,n);
+
+Asym = A + A'
+issymmetric(Asym)
+
+Asym_noisy = copy(Asym)
+Asym_noisy[1,2] += 5eps()
+
+issymmetric(Asym_noisy)
+
+Asym_explicit = Symmetric(Asym_noisy);
+
+# Note benchmarking interlude.
+
+# Note "generic" (?) linear algebra section.
+
+# Note exercises.
+```
+
+# Data Science with Julia
+
+## Dealing with Data
+
+
+```julia
+# Get packages.
+
+using BenchmarkTools
+using DataFrames
+using DelimitedFiles
+using CSV
+using XLSX
+using Downloads
+
+# Use Downloads functions ("download") for files online.
+
+# dat_download = Downloads.download("https://raw.githubusercontent.com/nassarhuda/easy_data/master/programming_languages.csv", "programming_languages.csv")
+
+# Use readdlm for simple delimited files.
+
+dat_readdlm = readdlm("data/programming_languages.csv", ','; header = true)
+
+# Use CSV functions ("read") for less simple delimited files.
+
+dat_read = CSV.read("data/programming_languages.csv", DataFrame)
+
+# Use DelimitedFiles functions for complex delimited files.
+
+# Look at objects.
+@show typeof(dat_readdlm)
+@show typeof(dat_read)
+
+names(dat_read)
+describe(dat_read)
+
+# Write an object to disk.
+
+CSV.write("out/programming_languages_out.csv", dat_read)
+XLSX.writetable("out/programming_languages_out.xlsx", dat_read, overwrite = true)
+
+# Use XLSX functions ("readdata") for spreadsheets. 
+dat_zillow = XLSX.readdata("data/zillow.xlsx", # file name
+    "Sale_counts_city", # sheet name
+    "A1:F9" # cell range
+    )
+
+# Untrue: The resulting object is a tuple of (1) a vector of vectors, with each vector a column and (2) column names.
+# True: the resulting object is a matrix, because something about XLSX changed since the Data Science course was developed.
+
+@show typeof(dat_zillow)
+dat_zillow
+
+# Writing that to a dataframe might be nice.
+#  This is another case of the course's code not working after updates.
+#  Cheers to contributors at https://stackoverflow.com/questions/26769162/convert-julia-array-to-dataframe.
+
+dat_zillow_dataframe = DataFrame(dat_zillow[2:end, 1:end], string.(dat_zillow[1, 1:end]))
+
+# Writing a dataframe from scratch might be nice, too.
+
+foods = ["apple", "cucumber", "tomato", "banana"]
+calories = [105, 47, 22, 105]
+prices = [0.85, 1.6, 0.8, 0.6,]
+dat_calories = DataFrame(item = foods, calories = calories)
+dat_prices = DataFrame(item = foods, price = prices)
+
+# Joins are a thing.
+
+dat_join = innerjoin(dat_calories, dat_prices, on=:item)
+
+# Note course section on reading files of different types, including .jld, .npz, .rda, and .mat. 
+
+# On to asking initial questions about the programming languages dataset.
+
+# Get the year a language was invented.
+
+function year_created(dat_read ,language::String)
+    loc = findfirst(dat_read[:,2] .== language)
+    return dat_read[loc,1]
+end
+
+year_created(dat_read,"Julia")
+
+# What if the user asks about a missing language?
+
+function year_created_handle_error(dat_read, language::String)
+    loc = findfirst(dat_read[:, 2] .== language)
+    !isnothing(loc) && return dat_read[loc, 1]
+    error("Error: Language not found.")
+end
+
+# year_created_handle_error(dat_read, "W")
+
+# Count languages invented in a year.
+
+function how_many_per_year(dat_read, year::Int64)
+    year_count = length(findall(dat_read[:,1].==year))
+    return year_count
+end
+
+how_many_per_year(dat_read, 2011)
+
+# The dataset might be easier to deal with in a dataframe.
+
+dat_read_dataframe = DataFrame(dat_read)
+
+# Then the same functions will look a little different:
+
+function year_created(dat_read_dataframe, language::String)
+    loc = findfirst(dat_read_dataframe.language .== language)
+    return dat_read_dataframe.year[loc]
+end
+
+year_created(dat_read_dataframe, "Julia")
+
+function year_created_handle_error(dat_read_dataframe, language::String)
+    loc = findfirst(dat_read_dataframe.language .== language)
+    !isnothing(loc) && return dat_read_dataframe.year[loc]
+    error("Error: Language not found.")
+end
+
+# year_created_handle_error(dat_read_dataframe, "W")
+
+function how_many_per_year(dat_read_dataframe, year::Int64)
+    year_count = length(findall(dat_read_dataframe.year.==year))
+    return year_count
+end
+
+how_many_per_year(dat_read_dataframe, 2011)
+
+# Dictionaries are another type for data.
+
+Dict([("A", 1), ("B", 2), (1, [1, 2])])
+
+dat_dict = Dict{Integer, Vector{String}}()
+
+# Check out the inline note.
+
+for i = 1:size(dat_read, 1)
+    year,lang = dat_read[i,:]
+    if year in keys(dat_dict)
+        dat_dict[year] = push!(dat_dict[year],lang) 
+        # note that push! is not our favorite thing to do in Julia, 
+        # but we're focusing on correctness rather than speed here
+    else
+        dat_dict[year] = [lang]
+    end
+end
+
+# Alternatively:
+
+curyear = dat_read_dataframe.year[1]
+
+dat_dict[curyear] = [dat_read_dataframe.language[1]]
+
+for (i,nextyear) in enumerate(dat_read_dataframe.year[2:end])
+    if nextyear == curyear
+        #same key
+        dat_dict[curyear] = push!(dat_dict[curyear], dat_read_dataframe.language[i+1])
+        # note that push! is not our favorite thing to do in Julia, 
+        # but we're focusing on correctness rather than speed here
+    else
+        curyear = nextyear
+        dat_dict[curyear] = [dat_read_dataframe.language[i+1]]
+    end
+end
+
+@show length(keys(dat_dict))
+@show length(unique(dat_read[:,1]))
+
+# Revisiting functions.
+
+function year_created(dat_dict, language::String)
+    keys_vec = collect(keys(dat_dict))
+    lookup = map(keyid -> findfirst(dat_dict[keyid].==language), keys_vec)
+    # now the lookup vector has `nothing` or a numeric value. We want to find the index of the numeric value.
+    return keys_vec[findfirst((!isnothing).(lookup))]
+end
+
+year_created(dat_dict,"Julia")
+
+how_many_per_year(dat_dict, year::Int64) = length(dat_dict[year])
+how_many_per_year(dat_dict, 2011)
+
+# Note function dropmissing for dealing with missing values, and keyword missing for missing. 
+
+```
