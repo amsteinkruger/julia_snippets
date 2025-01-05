@@ -798,3 +798,98 @@ how_many_per_year(dat_dict, 2011)
 # Note function dropmissing for dealing with missing values, and keyword missing for missing. 
 
 ```
+
+## Linear Algebra
+
+
+```julia
+# Get packages.
+
+using LinearAlgebra
+using SparseArrays
+using Images
+using MAT
+
+# Get a random matrix, then mess around.
+
+A = rand(10,10)
+Atranspose = A'
+A = A*Atranspose
+@show A[11] == A[1,2]
+
+b = rand(10)
+x = A \ b
+@show norm(A * x - b)
+
+# Note:
+#  A is of type Matrix, 
+#  b is of type Vector, 
+#  Atranspose is of type Adjoint (?), 
+#  operator \ is better for solving than function inv.
+
+@show typeof(A)
+@show typeof(b)
+@show typeof(rand(1, 10))
+@show typeof(Atranspose)
+
+# Note equivalences of objects across types, but mind dimensions.
+
+Matrix{Float64} == Array{Float64,2}
+Vector{Float64} == Array{Float64,1}
+
+# Note access to parent matrix through adjoint.
+
+Atranspose.parent
+
+B = copy(Atranspose) # Recall Julia's handling of identities and copies.
+
+# Check out longer treatment of operator \ for linear magic. 
+
+# Shifting into factorizations of linear systems. 
+
+# Consider L * U = P * A
+
+luA = lu(A)
+
+norm(luA.L * luA.U - luA.P*A)
+
+
+# Consider Q * R = A.
+
+qrA = qr(A)
+
+norm(qrA.Q * qrA.R - A)
+
+# Consider Cholesky factorization for a symmetric positive definite matrix.
+
+isposdef(A)
+
+cholA = cholesky(A)
+
+norm(cholA.L * cholA.U - A)
+
+cholA.L
+cholA.U
+
+factorize(A)
+
+Diagonal([1,2,3]) # As an example of a diagonal. 
+
+I(3) # Note that I() is a function.
+
+# Shifting into linear algebra for sparse matrices.
+
+S = sprand(5,5,2/5)
+
+S.rowval
+
+Matrix(S)
+
+S.colptr
+S.m
+
+# Skipping images as matrices.
+
+# Note that this all deals with made-up matrices and doesn't really get into empirical matrix problems (except sparseness).
+
+```
