@@ -893,3 +893,142 @@ S.m
 # Note that this all deals with made-up matrices and doesn't really get into empirical matrix problems (except sparseness).
 
 ```
+
+## Statistics
+
+
+```julia
+# Handle packages.
+
+using Statistics
+using StatsBase
+using RDatasets
+using Plots
+using StatsPlots
+using KernelDensity
+using Distributions
+using LinearAlgebra
+using HypothesisTests
+using PyCall
+using MLBase
+
+D = dataset("datasets", "faithful")
+@show names(D)
+D
+
+describe(D)
+
+eruptions = D[!,:Eruptions]
+scatter(eruptions, label = "Eruptions")
+waittime = D[!,:Waiting]
+scatter!(waittime, label = "Wait Time")
+
+# This isn't useful yet.
+
+# Try some basic statistical plots.
+
+boxplot(["Eruption Length"], eruptions, legend = false, size=(200,400), whisker_width = 1, ylabel = "Time in Minutes")
+
+histogram(eruptions, label = "Eruptions")
+histogram(eruptions, bins = :sqrt, label = "Eruptions")
+
+# Try some density plots.
+
+p = kde(eruptions)
+
+histogram(eruptions, label = "Eruptions")
+plot!(p.x, p.density .* length(eruptions), linewidth = 3, color = 2, label="KDE Fit") # Note transformation for interpretable density.
+
+histogram(eruptions, bins = :sqrt, label = "Eruptions")
+plot!(p.x, p.density .* length(eruptions) .*0.2, linewidth = 3,color = 2,label = "KDE Fit") # Ditto.
+
+# Try comparisons with random distributions.
+
+myrandomvector = randn(100_000)
+histogram(myrandomvector)
+p = kde(myrandomvector)
+plot!(p.x, p.density .* length(myrandomvector) .*0.1, linewidth = 3, color = 2, label = "KDE Fit")
+
+d = Normal()
+myrandomvector = rand(d, 100000)
+histogram(myrandomvector)
+p = kde(myrandomvector)
+plot!(p.x, p.density .* length(myrandomvector) .*0.1, linewidth = 3,color = 2, label = "KDE Fit") 
+
+b = Binomial(40) 
+myrandomvector = rand(b, 1000000)
+histogram(myrandomvector)
+p = kde(myrandomvector)
+plot!(p.x, p.density .* length(myrandomvector) .*0.5, color = 2,label = "KDE Fit")
+
+# Try fitting with function fit().
+
+x = rand(1000)
+d = fit(Normal, x)
+myrandomvector = rand(d, 1000)
+histogram(myrandomvector, nbins=20, fillalpha = 0.3,label = "Fit")
+histogram!(x, nbins = 20, linecolor = :red, fillalpha = 0.3, label = "Vector")
+
+x = eruptions
+d = fit(Normal, x)
+myrandomvector = rand(d, 1000)
+histogram(myrandomvector, nbins = 20, fillalpha = 0.3)
+histogram!(x, nbins=20, linecolor = :red, fillalpha = 0.3)
+
+# Into hypothesis testing. Mind p-value methods.
+
+myrandomvector = randn(1000)
+OneSampleTTest(myrandomvector)
+OneSampleTTest(eruptions)
+
+# Stuck on package management issues for Python.
+
+# scipy_stats = pyimport("scipy.stats")
+# @show scipy_stats.spearmanr(eruptions,waittime)
+# @show scipy_stats.pearsonr(eruptions,waittime)
+# scipy_stats.pearsonr(eruptions,waittime)
+
+corspearman(eruptions, waittime)
+
+cor(eruptions,waittime)
+
+scatter(eruptions, waittime, xlabel = "Eruption Length",
+    ylabel = "Wait Time between Eruptions", legend = false, grid = false, size = (400, 300))
+
+# AUC and Confusion Matrix (?) with MLBase
+
+gt = [1, 1, 1, 1, 1, 1, 1, 2]
+pred = [1, 1, 2, 2, 1, 1, 1, 1]
+C = confusmat(2, gt, pred)   # compute confusion matrix
+C ./ sum(C, dims=2)   # normalize per class
+sum(diag(C)) / length(gt)  # compute correct rate from confusion matrix
+correctrate(gt, pred)
+C = confusmat(2, gt, pred)   
+
+gt = [1, 1, 1, 1, 1, 1, 1, 0];
+pred = [1, 1, 0, 0, 1, 1, 1, 1]
+ROC = MLBase.roc(gt,pred)
+recall(ROC)
+precision(ROC)
+```
+
+## Dimensionality Reduction
+
+
+```julia
+# Skipping this. Note PCA, t-SNE, and UMAP.
+```
+
+## Clustering
+
+
+```julia
+using Clustering
+using VegaLite
+using VegaDatasets
+using DataFrames
+using Statistics
+using JSON
+using CSV
+using Distances
+```
