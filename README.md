@@ -1023,6 +1023,8 @@ precision(ROC)
 
 
 ```julia
+# Handle packages.
+
 using Clustering
 using VegaLite
 using VegaDatasets
@@ -1031,4 +1033,365 @@ using Statistics
 using JSON
 using CSV
 using Distances
+
+# Get real estate data.
+
+download("https://raw.githubusercontent.com/ageron/handson-ml/master/datasets/housing/housing.csv","newhouses.csv")
+houses = CSV.read("newhouses.csv", DataFrame)
+
+# Check it out, then visualize.
+
+names(houses)
+
+cali_shape = JSON.parsefile("data/california-counties.json")
+VV = VegaDatasets.VegaJSONDataset(cali_shape,"data/california-counties.json")
+
+@vlplot(width=500, height=300) +
+@vlplot(
+    mark={
+        :geoshape,
+        fill=:black,
+        stroke=:white
+    },
+    data={
+        values=VV,
+        format={
+            type=:topojson,
+            feature=:cb_2015_california_county_20m
+        }
+    },
+    projection={type=:albersUsa},
+)+
+@vlplot(
+    :circle,
+    data=houses,
+    projection={type=:albersUsa},
+    longitude="longitude:q",
+    latitude="latitude:q",
+    size={value=12},
+    color="median_house_value:q"
+                    
+)
+
+# Try some bins.
+
+bucketprice = Int.(div.(houses[!,:median_house_value],50000))
+insertcols!(houses,3,:cprice=>bucketprice)
+
+@vlplot(width=500, height=300) +
+@vlplot(
+    mark={
+        :geoshape,
+        fill=:black,
+        stroke=:white
+    },
+    data={
+        values=VV,
+        format={
+            type=:topojson,
+            feature=:cb_2015_california_county_20m
+        }
+    },
+    projection={type=:albersUsa},
+)+
+@vlplot(
+    :circle,
+    data=houses,
+    projection={type=:albersUsa},
+    longitude="longitude:q",
+    latitude="latitude:q",
+    size={value=12},
+    color="cprice:n"
+)
+
+# Try k-means.
+
+X = houses[!, [:latitude,:longitude]]
+C = kmeans(Matrix(X)', 10) 
+insertcols!(houses,3,:cluster10=>C.assignments)
+
+@vlplot(width=500, height=300) +
+@vlplot(
+    mark={
+        :geoshape,
+        fill=:black,
+        stroke=:white
+    },
+    data={
+        values=VV,
+        format={
+            type=:topojson,
+            feature=:cb_2015_california_county_20m
+        }
+    },
+    projection={type=:albersUsa},
+)+
+@vlplot(
+    :circle,
+    data=houses,
+    projection={type=:albersUsa},
+    longitude="longitude:q",
+    latitude="latitude:q",
+    size={value=12},
+    color="cluster10:n"    
+)
+
+# Try k-medoids with pairwise Euclidean distances.
+
+xmatrix = Matrix(X)'
+D = pairwise(Euclidean(), xmatrix, xmatrix,dims=2) 
+
+K = kmedoids(D,10)
+insertcols!(houses,3,:medoids_clusters=>K.assignments)
+
+@vlplot(width=500, height=300) +
+@vlplot(
+    mark={
+        :geoshape,
+        fill=:black,
+        stroke=:white
+    },
+    data={
+        values=VV,
+        format={
+            type=:topojson,
+            feature=:cb_2015_california_county_20m
+        }
+    },
+    projection={type=:albersUsa},
+)+
+@vlplot(
+    :circle,
+    data=houses,
+    projection={type=:albersUsa},
+    longitude="longitude:q",
+    latitude="latitude:q",
+    size={value=12},
+    color="medoids_clusters:n"          
+)
+
+# Try hierarchical clustering.
+
+K = hclust(D)
+L = cutree(K;k=10)
+insertcols!(houses,3,:hclust_clusters=>L)
+
+@vlplot(width=500, height=300) +
+@vlplot(
+    mark={
+        :geoshape,
+        fill=:black,
+        stroke=:white
+    },
+    data={
+        values=VV,
+        format={
+            type=:topojson,
+            feature=:cb_2015_california_county_20m
+        }
+    },
+    projection={type=:albersUsa},
+)+
+@vlplot(
+    :circle,
+    data=houses,
+    projection={type=:albersUsa},
+    longitude="longitude:q",
+    latitude="latitude:q",
+    size={value=12},
+    color="hclust_clusters:n"             
+)
+
+# Try DBSCAN clustering.
+
+using Distances
+dclara = pairwise(SqEuclidean(), Matrix(X)',dims=2)
+L = dbscan(dclara, 0.05, 10)
+@show length(unique(L.assignments))
+
+insertcols!(houses,3,:dbscanclusters3=>L.assignments)
+
+@vlplot(width=500, height=300) +
+@vlplot(
+    mark={
+        :geoshape,
+    
+        fill=:black,
+        stroke=:white
+    },
+    data={
+        values=VV,
+        format={
+            type=:topojson,
+            feature=:cb_2015_california_county_20m
+        }
+    },
+    projection={type=:albersUsa},
+)+
+@vlplot(
+    :circle,
+    data=houses,
+    projection={type=:albersUsa},
+    longitude="longitude:q",
+    latitude="latitude:q",
+    size={value=12},
+    color="dbscanclusters3:n"     
+)
+```
+
+## Classification 
+
+
+```julia
+# Get packages.
+
+using GLMNet
+using RDatasets
+using MLBase
+using Plots
+using DecisionTree
+using Distances
+using NearestNeighbors
+using Random
+using LinearAlgebra
+using DataStructures
+using LIBSVM
+
+# Pick an accuracy function.
+
+findaccuracy(predictedvals,groundtruthvals) = sum(predictedvals.==groundtruthvals)/length(groundtruthvals)
+
+# Get data.
+
+iris = dataset("datasets", "iris")
+
+# Manipulate data.
+
+X = Matrix(iris[:,1:4])
+irislabels = iris[:,5]
+
+irislabelsmap = labelmap(irislabels)
+y = labelencode(irislabelsmap, irislabels)
+
+# Split data.
+
+function perclass_splits(y,at)
+    uids = unique(y)
+    keepids = []
+    for ui in uids
+        curids = findall(y.==ui)
+        rowids = randsubseq(curids, at) 
+        push!(keepids,rowids...)
+    end
+    return keepids
+end
+
+trainids = perclass_splits(y,0.7)
+testids = setdiff(1:length(y),trainids)
+
+# Pick a prediction function.
+
+assign_class(predictedvalue) = argmin(abs.(predictedvalue .- [1,2,3]))
+
+# Try out some methods:
+
+#  1. Lasso
+
+path = glmnet(X[trainids, :], y[trainids])
+cv = glmnetcv(X[trainids, :], y[trainids])
+mylambda = path.lambda[argmin(cv.meanloss)]
+
+path = glmnet(X[trainids, :], y[trainids], lambda = [mylambda]);
+
+q = X[testids,:];
+predictions_lasso = GLMNet.predict(path,q)
+
+predictions_lasso = assign_class.(predictions_lasso)
+findaccuracy(predictions_lasso,y[testids])
+
+#  2. Ridge
+
+# Note that the only difference is the change in alpha (to zero).
+
+path = glmnet(X[trainids,:], y[trainids],alpha=0);
+cv = glmnetcv(X[trainids,:], y[trainids],alpha=0)
+mylambda = path.lambda[argmin(cv.meanloss)]
+path = glmnet(X[trainids,:], y[trainids],alpha=0,lambda=[mylambda]);
+q = X[testids,:];
+predictions_ridge = GLMNet.predict(path,q)
+predictions_ridge = assign_class.(predictions_ridge)
+findaccuracy(predictions_ridge,y[testids])
+
+#  3. Elastic Net
+
+# As above, only alpha is 0.50.
+
+path = glmnet(X[trainids,:], y[trainids],alpha=0.5);
+cv = glmnetcv(X[trainids,:], y[trainids],alpha=0.5)
+mylambda = path.lambda[argmin(cv.meanloss)]
+path = glmnet(X[trainids,:], y[trainids],alpha=0.5,lambda=[mylambda]);
+q = X[testids,:];
+predictions_EN = GLMNet.predict(path,q)
+predictions_EN = assign_class.(predictions_EN)
+findaccuracy(predictions_EN,y[testids])
+
+#  4. Decision Tree
+
+# With package DecisionTree
+
+model = DecisionTreeClassifier(max_depth=2)
+DecisionTree.fit!(model, X[trainids,:], y[trainids])
+q = X[testids,:];
+predictions_DT = DecisionTree.predict(model, q)
+findaccuracy(predictions_DT,y[testids])
+
+#  5. Random Forest
+
+# Also in DecisionTree
+
+model = RandomForestClassifier(n_trees=20)
+DecisionTree.fit!(model, X[trainids,:], y[trainids])
+q = X[testids,:];
+predictions_RF = DecisionTree.predict(model, q)
+findaccuracy(predictions_RF,y[testids])
+
+#  6. Nearest Neighbor
+
+# With NearestNeighbor
+
+Xtrain = X[trainids,:]
+ytrain = y[trainids]
+kdtree = KDTree(Xtrain')
+queries = X[testids,:]
+idxs, dists = knn(kdtree, queries', 5, true)
+c = ytrain[hcat(idxs...)]
+possible_labels = map(i->counter(c[:,i]),1:size(c,2))
+predictions_NN = map(i->parse(Int,string(string(argmax(possible_labels[i])))),1:size(c,2))
+findaccuracy(predictions_NN,y[testids])
+
+#  7. Support Vector Machines
+
+# With LIBSVM
+
+Xtrain = X[trainids,:]
+ytrain = y[trainids]
+model = svmtrain(Xtrain', ytrain)
+predictions_SVM, decision_values = svmpredict(model, X[testids,:]')
+findaccuracy(predictions_SVM,y[testids])
+
+# Compare results.
+
+overall_accuracies = zeros(7)
+methods = ["lasso","ridge","EN", "DT", "RF","kNN", "SVM"]
+ytest = y[testids]
+overall_accuracies[1] = findaccuracy(predictions_lasso,ytest)
+overall_accuracies[2] = findaccuracy(predictions_ridge,ytest)
+overall_accuracies[3] = findaccuracy(predictions_EN,ytest)
+overall_accuracies[4] = findaccuracy(predictions_DT,ytest)
+overall_accuracies[5] = findaccuracy(predictions_RF,ytest)
+overall_accuracies[6] = findaccuracy(predictions_NN,ytest)
+overall_accuracies[7] = findaccuracy(predictions_SVM,ytest)
+hcat(methods, overall_accuracies)
+
+# Note that all methods should work well, and all methods except decision trees and random forests should be accurate (perfect).
 ```
